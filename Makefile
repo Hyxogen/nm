@@ -21,8 +21,8 @@ ifndef config
 endif
 
 ifeq ($(config), debug)
-	CFLAGS	+= -g3 -Og -fno-inline -DNM_DEBUG
-	LFLAGS	+= -g3 -Og -fno-inline
+	CFLAGS	+= -g3 -O0 -fno-inline -DNM_DEBUG
+	LFLAGS	+= -g3 -O0 -fno-inline
 else ifeq ($(config), debug)
 	CFLAGS	+= -g3 -O1 -DPING_DEBUG
 	LFLAGS	+= -g3 -O1

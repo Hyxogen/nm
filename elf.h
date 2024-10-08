@@ -76,6 +76,43 @@ typedef int64_t Elf64_Sxword;
 
 #define EV_NONE 0
 
+#define STB_LOCAL 0
+#define STB_GLOBAL 1
+#define STB_WEAK 2
+#define STB_LOOS 10
+#define STB_HIOS 12
+#define STB_LOPROC 13
+#define STB_HIPROC 15
+
+#define STT_NOTYPE 0
+#define STT_OBJECT 1
+#define STT_FUNC 2
+#define STT_SECTION 3
+#define STT_FILE 4
+#define STT_COMMON 5
+#define STT_TLS 6
+#define STT_LOOS 10
+#define STT_HIOS 12
+#define STT_LOPROC 13
+#define STT_SPARC_REGISTER 13
+#define STT_HIPROC 15
+
+#define SHF_WRITE 0x1
+#define SHF_ALLOC 0x2
+#define SHF_EXECINSTR 0x4
+#define SHF_MERGE 0x10
+#define SHF_STRINGS 0x20
+#define SHF_INFO_LINK 0x40
+#define SHF_LINK_ORDER 0x80
+#define SHF_OS_NONCONFORMING 0x100
+#define SHF_GROUP 0x200
+#define SHF_TLS 0x400
+#define SHF_MASKOS	0x0ff00000
+#define SHF_AMD64_LARGE	0x10000000
+#define SHF_ORDERED	0x40000000
+#define SHF_EXCLUDE	0x80000000
+#define SHF_MASKPROC	0xf0000000
+
 typedef struct {
 	unsigned char e_ident[EI_NIDENT];
 	Elf32_Half e_type;
@@ -153,5 +190,13 @@ typedef struct {
 	Elf64_Addr st_value;
 	Elf64_Xword st_size;
 } Elf64_Sym;
+
+#define ELF32_ST_TYPE(info) ((info) & 0xf)
+#define ELF32_ST_BIND(info) ((info) >> 4)
+#define ELF32_ST_VISIBILITY(o) ((o) & 0x3)
+
+#define ELF64_ST_TYPE(info) ((info) & 0xf)
+#define ELF64_ST_BIND(info) ((info) >> 4)
+#define ELF64_ST_VISIBILITY(o) ((o) & 0x3)
 
 #endif
