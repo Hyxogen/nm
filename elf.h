@@ -80,6 +80,7 @@ typedef int64_t Elf64_Sxword;
 #define STB_GLOBAL 1
 #define STB_WEAK 2
 #define STB_LOOS 10
+#define STB_GNU_UNIQUE	10 /* gnu extension */
 #define STB_HIOS 12
 #define STB_LOPROC 13
 #define STB_HIPROC 15

@@ -213,6 +213,9 @@ static char get_nm_sym(const Gelf_Ehdr *gelf, const Gelf_Sym *sym)
 	} else if (sym->st_shndx == SHN_COMMON) {
 		uppercase = true;
 		res = 'c';
+	} else if (bind == STB_GNU_UNIQUE) {
+		uppercase = false;
+		res = 'u';
 	} else if (bind == STB_WEAK) {
 		uppercase = sym->st_shndx != SHN_UNDEF;
 		res = 'w';
@@ -386,7 +389,7 @@ static void print_symbol(Gelf_Ehdr *gelf, const struct symbol *sym)
 {
 	int width = gelf->type == ELF32 ? 8 : 16;
 
-	if (tolower(sym->ch) == 'u' || sym->ch == 'w' || sym->ch == 'v') {
+	if (sym->ch == 'U' || sym->ch == 'w' || sym->ch == 'v') {
 		for (int i = 0; i <= width; i++) {
 			printf(" ");
 		}
@@ -395,32 +398,6 @@ static void print_symbol(Gelf_Ehdr *gelf, const struct symbol *sym)
 	}
 	printf("%c ", sym->ch);
 	printf("%s\n", sym->name);
-}
-
-static int cmp_symname(const char *a, const char *b)
-{
-	const char *tmpa = a;
-	const char *tmpb = a;
-	while (1) {
-		while (*a && !isalnum(*a))
-			++a;
-		while (*b && !isalnum(*b))
-			++b;
-		if (!*a)
-			break;
-		if (!*b)
-			break;
-
-		if (tolower(*a) != tolower(*b))
-			break;
-		++a;
-		++b;
-	}
-
-	int val = tolower(*a) - tolower(*b);
-	if (!val)
-		return -strcmp(tmpa, tmpb);
-	return val;
 }
 
 static int cmp_sym(const void *a, const void *b)
@@ -434,8 +411,6 @@ static int cmp_sym(const void *a, const void *b)
 		return -1;
 
 	return strcmp(sa->name, sb->name);
-	//return strcoll(sa->name, sb->name);
-	//return cmp_symname(sa->name, sb->name);
 }
 
 int main(int argc, char **argv)
