@@ -9,6 +9,7 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <locale.h>
 
 #include <string.h> // TODO use libft functions
 
@@ -396,6 +397,47 @@ static void print_symbol(Gelf_Ehdr *gelf, const struct symbol *sym)
 	printf("%s\n", sym->name);
 }
 
+static int cmp_symname(const char *a, const char *b)
+{
+	const char *tmpa = a;
+	const char *tmpb = a;
+	while (1) {
+		while (*a && !isalnum(*a))
+			++a;
+		while (*b && !isalnum(*b))
+			++b;
+		if (!*a)
+			break;
+		if (!*b)
+			break;
+
+		if (tolower(*a) != tolower(*b))
+			break;
+		++a;
+		++b;
+	}
+
+	int val = tolower(*a) - tolower(*b);
+	if (!val)
+		return -strcmp(tmpa, tmpb);
+	return val;
+}
+
+static int cmp_sym(const void *a, const void *b)
+{
+	const struct symbol *sa = (struct symbol*)a;
+	const struct symbol *sb = (struct symbol*)b;
+
+	if (!sb)
+		return !sa;
+	if (!sa)
+		return -1;
+
+	return strcmp(sa->name, sb->name);
+	//return strcoll(sa->name, sb->name);
+	//return cmp_symname(sa->name, sb->name);
+}
+
 int main(int argc, char **argv)
 {
 	if (argc < 2) {
@@ -405,6 +447,9 @@ int main(int argc, char **argv)
 		return 0;
 	}
 
+	//setlocale(LC_CTYPE, "");
+	//setlocale(LC_COLLATE, "");
+
 	Gelf_Ehdr gelf;
 	if (read_gelf(&gelf, argv[1])) {
 		printf("failed to read elf\n");
@@ -413,6 +458,8 @@ int main(int argc, char **argv)
 
 	size_t nsyms = 0;
 	struct symbol *symbols = read_symbols(&gelf, &nsyms);
+
+	qsort(symbols, nsyms, sizeof(*symbols), cmp_sym);
 
 	for (size_t i = 0; i < nsyms; i++) {
 		print_symbol(&gelf, &symbols[i]);
