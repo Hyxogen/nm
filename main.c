@@ -23,6 +23,8 @@ typedef Elf64_Half Gelf_Half;
 #define GELF_ST_TYPE(info) ELF64_ST_TYPE(info)
 #define GELF_ST_VISIBILITY(info) ELF64_ST_VISIBILITY(info)
 
+static bool print_all = false;
+
 // TODO endiannes?
 typedef enum {
 	ELF32,
@@ -209,6 +211,8 @@ static char get_nm_sym(const Gelf_Ehdr *gelf, const Gelf_Sym *sym)
 	Gelf_Shdr section;
 	if (sym->st_shndx == SHN_ABS) {
 		uppercase = type != STT_FILE;
+		if (!uppercase && !print_all)
+			return -1;
 		res = 'a';
 	} else if (sym->st_shndx == SHN_COMMON) {
 		uppercase = true;
@@ -225,6 +229,8 @@ static char get_nm_sym(const Gelf_Ehdr *gelf, const Gelf_Sym *sym)
 		uppercase = true;
 		res = 'U';
 	} else if (!gelf_get_shdr(gelf, &section, sym->st_shndx)) {
+		if (type == STT_SECTION && !print_all)
+			return -1;
 		if (section.sh_flags & SHF_ALLOC) {
 			if (section.sh_type == SHT_NOBITS)
 				res = 'b';
@@ -311,6 +317,8 @@ static struct symbol *read_symbols(const Gelf_Ehdr *gelf, size_t *nsyms)
 		// TODO check if st_value is valid?
 		symbols[count].value = sym.st_value;
 		symbols[count].ch = get_nm_sym(gelf, &sym);
+		if (symbols[count].ch == -1)
+			continue;
 		//symbols[count].info = sym.st_info;
 		symbols[count].name = gelf_get_sym_name(gelf, &sym);
 
