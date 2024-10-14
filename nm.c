@@ -363,7 +363,7 @@ static enum error Gelf_shdr_find(const Gelf_Ehdr *gelf,
 
 		const char *shdr_name =
 			Gelf_shdr_get_name(gelf, shstrtab, dest);
-		if (!name || ft_strcmp(shdr_name, name))
+		if (!shdr_name || ft_strcmp(shdr_name, name))
 			continue;
 
 		return NM_OK;
