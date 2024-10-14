@@ -856,7 +856,8 @@ int main(int argc, char **argv)
 
 int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
 {
-	return -1;
+	print_symbols_mem(data, size);
+	return 0;
 }
 
 #endif

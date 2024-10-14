@@ -75,5 +75,10 @@ re:
 fmt:
 	clang-format -i $(SRC_FILES)
 
-.PHONY: all clean fclean re check format
+fuzz: NAME := $(NAME)-fuzz
+fuzz: CFLAGS += -fsanitize=fuzzer -DNM_FUZZ
+fuzz: LFLAGS += -fsanitize=fuzzer
+fuzz: $(NAME)
+
+.PHONY: all clean fclean re check format fuzz
 -include $(DEP_FILES)
