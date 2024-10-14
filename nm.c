@@ -605,6 +605,8 @@ static enum error check_elf(const Gelf_Ehdr *gelf)
 	if (gelf->e_shnum >= SHN_LORESERVE)
 		return NM_EBADELF;
 
+	if (gelf->e_shoff >= gelf->size)
+		return NM_EBADELF;
 	const void *shstart = (char *)gelf->addr + gelf->e_shoff;
 
 	size_t size = gelf->e_shnum * gelf->e_shentsize;
