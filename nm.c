@@ -682,7 +682,7 @@ static int compare_symbol_rev(const void *a, const void *b, void *opaque)
 
 static void print_symbol(const struct nm_state *state, const struct symbol *sym)
 {
-#if !FT_FUZZ
+#if !NM_FUZZ
 	int width = state->elf->is_elf32 ? 8 : 16;
 
 	if (sym->ch == 'U' || sym->ch == 'w' || sym->ch == 'v') {
