@@ -38,8 +38,8 @@ ifndef san
 endif
 
 ifeq ($(san), addr)
-	CFLAGS += -fsanitize=address,undefined
-	LFLAGS += -fsanitize=address,undefined
+	CFLAGS += -fsanitize=address,undefined -fno-sanitize-recover
+	LFLAGS += -fsanitize=address,undefined -fno-sanitize-recover
 else ifeq ($(san), mem)
 	CFLAGS += -fsanitize=memory,undefined -fsanitize-memory-track-origins
 	LFLAGS += -fsanitize=memory,undefined -fsanitize-memory-track-origins
