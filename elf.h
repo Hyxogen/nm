@@ -19,7 +19,7 @@ typedef uint64_t Elf64_Xword;
 typedef int64_t Elf64_Sxword;
 
 #define SHN_UNDEF 0
-#define SHN_LOWRESERVE 0xff00
+#define SHN_LORESERVE 0xff00
 #define SHN_LOWPROC 0xff00
 #define SHN_HIPROC 0xff1f
 #define SHN_ABS 0xfff1
@@ -93,6 +93,7 @@ typedef int64_t Elf64_Sxword;
 #define STT_COMMON 5
 #define STT_TLS 6
 #define STT_LOOS 10
+#define STT_GNU_IFUNC 10 /* gnu extension, indirect code object */
 #define STT_HIOS 12
 #define STT_LOPROC 13
 #define STT_SPARC_REGISTER 13

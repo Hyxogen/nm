@@ -5,7 +5,7 @@ OBJ_DIR		:= build
 LIBFT_DIR	:= libft
 LIBFT_LIB	:= $(LIBFT_DIR)/libft.a
 
-SRC_FILES	:= main.c
+SRC_FILES	:= nm.c
 OBJ_FILES	:= $(patsubst %.c,$(OBJ_DIR)/%.o,$(SRC_FILES))
 DEP_FILES	:= $(patsubst %.c,$(OBJ_DIR)/%.d,$(SRC_FILES))
 
@@ -34,7 +34,7 @@ $(error "$(config): unknown config")
 endif
 
 ifndef san
-	san 	:= none
+	san 	:= addr
 endif
 
 ifeq ($(san), addr)

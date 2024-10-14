@@ -2,3 +2,7 @@
 /a.out
 /ft_nm
 /test.out
+/compile_commands.json
+/.cache
+/mine.txt
+/theirs.txt

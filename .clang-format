@@ -21,3 +21,5 @@ AlwaysBreakAfterDefinitionReturnType: None
 AlwaysBreakAfterReturnType: None
 IndentPPDirectives: AfterHash
 PPIndentWidth: 1
+ConstructorInitializerIndentWidth: 8
+ContinuationIndentWidth: 8
