@@ -45,7 +45,7 @@ global _global_weak_sym:weak
 _global_weak_sym:
 resb 0x4
 
-section .debug nowrite noalloc
+section .foo nowrite noalloc
 global _global_debug_sym
 _global_debug_sym:
 dd 0x4

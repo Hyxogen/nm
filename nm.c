@@ -517,6 +517,12 @@ static bool should_exclude(const struct symbol *sym)
 {
 	if (sym->is_debug && !prog_opts.print_debug)
 		return true;
+	if (prog_opts.undefined_only && sym->ch != 'U' && sym->ch != 'w' &&
+	    sym->ch != 'v')
+		return true;
+	if (prog_opts.extern_only && ft_islower(sym->ch) && sym->ch != 'v' &&
+	    sym->ch != 'w' && sym->ch != 'u')
+		return true;
 	return false;
 }
 
