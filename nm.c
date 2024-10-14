@@ -1,11 +1,12 @@
 #include "elf.h"
 #include <assert.h>
+#include <errno.h>
 #include <fcntl.h>
+#include <ft/ctype.h>
 #include <ft/getopt.h>
 #include <ft/stdio.h>
 #include <ft/stdlib.h>
 #include <ft/string.h>
-#include <ft/ctype.h>
 #include <stdbool.h>
 #include <stddef.h>
 #include <stdio.h>
@@ -13,11 +14,14 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
-#include <errno.h>
 
-//TODO remove
-#include <string.h>
+// TODO remove
 #include <stdlib.h>
+#include <string.h>
+
+#ifndef NM_FUZZ
+# define NM_FUZZ 0
+#endif
 
 #ifndef __BYTE_ORDER__
 # error "__BYTE_ORDER__ must be defined to compile this"
@@ -47,9 +51,9 @@ typedef struct {
 	Gelf_Half e_shstrndx;
 	Gelf_Off e_shoff;
 	union {
-		Elf32_Ehdr *elf32;
-		Elf64_Ehdr *elf64;
-		void *addr;
+		const Elf32_Ehdr *elf32;
+		const Elf64_Ehdr *elf64;
+		const void *addr;
 	};
 
 	size_t size;
@@ -94,7 +98,7 @@ enum error {
 struct nm_state {
 	const char *file;
 
-	Gelf_Ehdr elf;
+	const Gelf_Ehdr *elf;
 
 	Gelf_Shdr shstrtab;
 	Gelf_Shdr strtab;
@@ -120,7 +124,7 @@ const char *prog_name = "nm";
 
 static int compare_symbol(const void *a, const void *b, void *dummy);
 static int compare_symbol_rev(const void *a, const void *b, void *opaque);
-static int (*const sorters[2])(const void *, const void *, void*) = {
+static int (*const sorters[2])(const void *, const void *, void *) = {
 	compare_symbol,
 	compare_symbol_rev,
 };
@@ -275,9 +279,9 @@ finish:
 	return res;
 }
 
-static int free_elf(Gelf_Ehdr *elf)
+static int free_file(void *file, size_t size)
 {
-	if (elf->addr != MAP_FAILED && munmap(elf->addr, elf->size)) {
+	if (munmap(file, size)) {
 		perror("munmap");
 		return -1;
 	}
@@ -428,7 +432,8 @@ static enum error Gelf_sym_at(const Gelf_Ehdr *gelf,
 	return NM_OK;
 }
 
-static char get_symbol_char(const Gelf_Ehdr *gelf, const Gelf_Sym *sym, bool *is_debug)
+static char get_symbol_char(const Gelf_Ehdr *gelf, const Gelf_Sym *sym,
+			    bool *is_debug)
 {
 	int bind = GELF_ST_BIND(sym->st_info);
 	int type = GELF_ST_TYPE(sym->st_info);
@@ -495,7 +500,7 @@ static enum error read_symbol_at(const struct nm_state *state,
 				 struct symbol *dest, size_t idx)
 {
 	Gelf_Sym sym;
-	enum error res = Gelf_sym_at(&state->elf, &state->symtab, &sym, idx);
+	enum error res = Gelf_sym_at(state->elf, &state->symtab, &sym, idx);
 
 	if (res != NM_OK)
 		return res;
@@ -503,23 +508,23 @@ static enum error read_symbol_at(const struct nm_state *state,
 	int type = GELF_ST_TYPE(sym.st_info);
 
 	if (type == STT_SECTION) {
-		if (sym.st_shndx >= state->elf.e_shnum)
+		if (sym.st_shndx >= state->elf->e_shnum)
 			return NM_EBADELF;
 
 		Gelf_Shdr shdr;
-		res = Gelf_shdr_at(&state->elf, &shdr, sym.st_shndx);
+		res = Gelf_shdr_at(state->elf, &shdr, sym.st_shndx);
 		if (res != NM_OK)
 			return res;
 
-		dest->name = Gelf_shdr_get_name(&state->elf, &state->shstrtab,
-						&shdr);
+		dest->name =
+			Gelf_shdr_get_name(state->elf, &state->shstrtab, &shdr);
 	} else {
-		dest->name = Gelf_strtab_get_name(&state->elf, &state->strtab,
+		dest->name = Gelf_strtab_get_name(state->elf, &state->strtab,
 						  sym.st_name);
 	}
 
 	dest->value = sym.st_value;
-	dest->ch = get_symbol_char(&state->elf, &sym, &dest->is_debug);
+	dest->ch = get_symbol_char(state->elf, &sym, &dest->is_debug);
 
 	/* apparently, for common values, the size is used as the value */
 	if (ft_tolower(dest->ch) == 'c')
@@ -604,125 +609,45 @@ static enum error check_elf(const Gelf_Ehdr *gelf)
 	return NM_OK;
 }
 
-static enum error read_elf(Gelf_Ehdr *dest, const char *path)
+static enum error init_state(struct nm_state *state, const Gelf_Ehdr *ehdr)
 {
+	state->elf = ehdr;
+
 	enum error res = NM_OK;
+	if (state->elf->e_shstrndx >= state->elf->e_shnum)
+		return NM_EBADELF;
 
-	dest->addr = MAP_FAILED;
-
-	res = read_file(&dest->addr, &dest->size, path);
+	res = Gelf_shdr_at(state->elf, &state->shstrtab,
+			   state->elf->e_shstrndx);
 	if (res != NM_OK)
 		return res;
 
-	if (dest->size < EI_NIDENT) {
-		res = NM_EFILE;
-		goto done;
-	}
-
-	if (ft_memcmp(dest->elf32->e_ident,
-		      "\x7f"
-		      "ELF",
-		      4)) {
-		res = NM_EFILE;
-		goto done;
-	}
-
-	switch (dest->elf32->e_ident[EI_CLASS]) {
-	case ELFCLASS32:
-		dest->is_elf32 = true;
-		dest->e_shentsize = dest->elf32->e_shentsize;
-		dest->e_shnum = dest->elf32->e_shnum;
-		dest->e_shstrndx = dest->elf32->e_shstrndx;
-		dest->e_shoff = dest->elf32->e_shoff;
-		break;
-	case ELFCLASS64:
-		dest->is_elf32 = false;
-		dest->e_shentsize = dest->elf64->e_shentsize;
-		dest->e_shnum = dest->elf64->e_shnum;
-		dest->e_shstrndx = dest->elf64->e_shstrndx;
-		dest->e_shoff = dest->elf64->e_shoff;
-		break;
-	default:
-		res = NM_EUNSUP;
-		goto done;
-	}
-
-	if ((dest->is_elf32 && dest->size < sizeof(Elf32_Ehdr)) ||
-	    (!dest->is_elf32 && dest->size < sizeof(Elf64_Ehdr))) {
-		res = NM_EBADELF;
-		goto done;
-	}
-
-	res = check_elf(dest);
-
-done:
-	if (res != NM_OK)
-		free_elf(dest);
-	return res;
-}
-
-static enum error init_state(struct nm_state *state, const char *file)
-{
-	state->file = file;
-
-	enum error res = read_elf(&state->elf, state->file);
-	if (res != NM_OK)
-		goto done;
-
-	if (state->elf.e_shstrndx >= state->elf.e_shnum) {
-		res = NM_EBADELF;
-		goto done;
-	}
-
-	res = Gelf_shdr_at(&state->elf, &state->shstrtab,
-			   state->elf.e_shstrndx);
-	if (res != NM_OK)
-		goto done;
-
 	if (state->shstrtab.sh_type != SHT_STRTAB ||
-	    !Gelf_shdr_check(&state->elf, &state->shstrtab)) {
+	    !Gelf_shdr_check(state->elf, &state->shstrtab)) {
 		res = NM_EBADELF;
-		goto done;
 	}
 
-	res = Gelf_shdr_find_checked(&state->elf, &state->shstrtab,
+	res = Gelf_shdr_find_checked(state->elf, &state->shstrtab,
 				     &state->strtab, ".strtab");
-	if (res == NM_ENOTFOUND) {
-		res = NM_ENOSYM;
-		goto done;
-	}
-	if (res != NM_OK || state->strtab.sh_type != SHT_STRTAB) {
-		res = NM_EBADELF;
-		goto done;
-	}
+	if (res == NM_ENOTFOUND)
+		return NM_ENOSYM;
+	if (res != NM_OK || state->strtab.sh_type != SHT_STRTAB)
+		return NM_EBADELF;
 
-	res = Gelf_shdr_find_checked(&state->elf, &state->shstrtab,
+	res = Gelf_shdr_find_checked(state->elf, &state->shstrtab,
 				     &state->symtab, ".symtab");
-	if (res == NM_ENOTFOUND) {
-		res = NM_ENOSYM;
-		goto done;
-	}
-	if (res != NM_OK || state->symtab.sh_type != SHT_SYMTAB) {
-		res = NM_EBADELF;
-		goto done;
-	}
-
-done:
-	if (res != NM_OK)
-		free_elf(&state->elf);
+	if (res == NM_ENOTFOUND)
+		return NM_ENOSYM;
+	if (res != NM_OK || state->symtab.sh_type != SHT_SYMTAB)
+		return NM_EBADELF;
 	return res;
-}
-
-static void free_state(struct nm_state *state)
-{
-	free_elf(&state->elf);
 }
 
 static int compare_symbol(const void *a, const void *b, void *dummy)
 {
 	(void)dummy;
-	const struct symbol *sa = (struct symbol*)a;
-	const struct symbol *sb = (struct symbol*)b;
+	const struct symbol *sa = (struct symbol *)a;
+	const struct symbol *sb = (struct symbol *)b;
 
 	if (!sb->name)
 		return !sa;
@@ -739,47 +664,109 @@ static int compare_symbol_rev(const void *a, const void *b, void *opaque)
 
 static void print_symbol(const struct nm_state *state, const struct symbol *sym)
 {
-	int width = state->elf.is_elf32 ? 8 : 16;
+	int width = state->elf->is_elf32 ? 8 : 16;
 
 	if (sym->ch == 'U' || sym->ch == 'w' || sym->ch == 'v') {
 		for (int i = 0; i <= width; i++) {
 			printf(" ");
 		}
 	} else {
-		printf("%0*llx ", width, (unsigned long long) sym->value);
+		printf("%0*llx ", width, (unsigned long long)sym->value);
 	}
 	printf("%c ", sym->ch);
 	printf("%s\n", sym->name);
 }
 
+static enum error parse_elf_header(Gelf_Ehdr *hdr, const void *data,
+				   size_t size)
+{
+	hdr->addr = data;
+	hdr->size = size;
+
+	if (size < EI_NIDENT)
+		return NM_EFILE;
+
+	const unsigned char *ident = hdr->elf32->e_ident;
+
+	if (ft_memcmp(ident,
+		      "\x7f"
+		      "ELF",
+		      4))
+		return NM_EFILE;
+
+	switch (ident[EI_CLASS]) {
+	case ELFCLASS32:
+		hdr->is_elf32 = true;
+		hdr->e_shentsize = hdr->elf32->e_shentsize;
+		hdr->e_shnum = hdr->elf32->e_shnum;
+		hdr->e_shstrndx = hdr->elf32->e_shstrndx;
+		hdr->e_shoff = hdr->elf32->e_shoff;
+		break;
+	case ELFCLASS64:
+		hdr->is_elf32 = false;
+		hdr->e_shentsize = hdr->elf64->e_shentsize;
+		hdr->e_shnum = hdr->elf64->e_shnum;
+		hdr->e_shstrndx = hdr->elf64->e_shstrndx;
+		hdr->e_shoff = hdr->elf64->e_shoff;
+		break;
+	default:
+		return NM_EUNSUP;
+	}
+
+	if ((hdr->is_elf32 && hdr->size < sizeof(Elf32_Ehdr)) ||
+	    (!hdr->is_elf32 && hdr->size < sizeof(Elf64_Ehdr))) {
+		return NM_EBADELF;
+	}
+	return check_elf(hdr);
+}
+
+static enum error print_symbols_mem(const void *data, size_t size)
+{
+	Gelf_Ehdr ehdr;
+
+	enum error res = parse_elf_header(&ehdr, data, size);
+	if (res != NM_OK)
+		return res;
+
+	struct nm_state state = {};
+	res = init_state(&state, &ehdr);
+	if (res != NM_OK)
+		return res;
+
+	size_t nsyms;
+	struct symbol *symbols;
+	res = read_symbols(&state, &symbols, &nsyms);
+	if (res != NM_OK)
+		return res;
+
+	if (!prog_opts.no_sort) {
+		mergesort(symbols, nsyms, sizeof(*symbols),
+			  sorters[prog_opts.reverse_sort], NULL);
+	}
+
+	for (size_t i = 0; i < nsyms; i++) {
+		print_symbol(&state, &symbols[i]);
+	}
+	free(symbols);
+	return NM_OK;
+}
+
 static void print_symbols(const char *path)
 {
-	struct nm_state state = {};
+	size_t filesize;
+	void *file;
 
-	enum error err = init_state(&state, path);
-	if (err == NM_OK) {
-		size_t nsyms;
-		struct symbol *symbols;
-
-		err = read_symbols(&state, &symbols, &nsyms);
-		if (err == NM_OK) {
-			if (!prog_opts.no_sort) {
-				mergesort(symbols, nsyms, sizeof(*symbols),
-					 sorters[prog_opts.reverse_sort], NULL);
-			}
-
-			for (size_t i = 0; i < nsyms; i++) {
-				print_symbol(&state, &symbols[i]);
-			}
-			free(symbols);
-		}
-		free_state(&state);
+	enum error res = read_file(&file, &filesize, path);
+	if (res == NM_OK) {
+		res = print_symbols_mem(file, filesize);
+		free_file(file, filesize);
 	}
-	if (err != NM_OK) {
-		if (err == NM_ESYS)
+
+	if (res != NM_OK) {
+		if (res == NM_ESYS)
 			error("%s: %s", path, strerror(errno));
 		else
-			error("%s: %s", path, get_error(err));
+			error("%s: %s", path, get_error(res));
 	}
 }
 
@@ -812,7 +799,8 @@ static void parse_opts(struct opts *opts, int argc, char **argv)
 	ft_opterr = 1;
 	int c;
 
-	while ((c = ft_getopt_long(argc, argv, "agurph", longopts, NULL)) != -1) {
+	while ((c = ft_getopt_long(argc, argv, "agurph", longopts, NULL)) !=
+	       -1) {
 		switch (c) {
 		case 0:
 		case 'a':
@@ -845,6 +833,7 @@ static void parse_opts(struct opts *opts, int argc, char **argv)
 	}
 }
 
+#if !NM_FUZZ
 int main(int argc, char **argv)
 {
 	if (argc)
@@ -861,3 +850,13 @@ int main(int argc, char **argv)
 	}
 	return EXIT_SUCCESS;
 }
+#else
+
+# include <stdint.h>
+
+int LLVMFuzzerTestOneInput(const uint8_t *data, size_t size)
+{
+	return -1;
+}
+
+#endif
