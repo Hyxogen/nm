@@ -421,29 +421,32 @@ static char get_symbol_char(const Gelf_Ehdr *gelf, const Gelf_Sym *sym, bool *is
 	char ch = '?';
 	*is_debug = false;
 
+	if (type == STT_SECTION || type == STT_FILE)
+		*is_debug = true;
+
 	Gelf_Shdr section;
-	if (sym->st_shndx == SHN_ABS) {
-		uppercase = type != STT_FILE;
-		if (!uppercase)
-			*is_debug = true;
-		ch = 'a';
-	} else if (sym->st_shndx == SHN_COMMON) {
+	if (sym->st_shndx == SHN_COMMON) {
 		uppercase = true;
 		ch = 'c';
+	} else if (bind == STB_WEAK) {
+		uppercase = sym->st_shndx != SHN_UNDEF;
+		if (bind == STB_WEAK) {
+			ch = 'w';
+			if (type == STT_OBJECT)
+				ch = 'v';
+		}
+	} else if (sym->st_shndx == SHN_UNDEF) {
+		uppercase = true;
+		ch = 'u';
 	} else if (type == STT_GNU_IFUNC) {
 		uppercase = false;
 		ch = 'i';
 	} else if (bind == STB_GNU_UNIQUE) {
 		uppercase = false;
 		ch = 'u';
-	} else if (bind == STB_WEAK) {
-		uppercase = sym->st_shndx != SHN_UNDEF;
-		ch = 'w';
-		if (type == STT_OBJECT)
-			ch = 'v';
-	} else if (sym->st_shndx == SHN_UNDEF) {
-		uppercase = true;
-		ch = 'U';
+	} else if (sym->st_shndx == SHN_ABS) {
+		uppercase = type != STT_FILE;
+		ch = 'a';
 	} else if (sym->st_shndx < gelf->e_shnum) {
 		enum error res = Gelf_shdr_at(gelf, &section, sym->st_shndx);
 		if (res != NM_OK) {
@@ -451,27 +454,23 @@ static char get_symbol_char(const Gelf_Ehdr *gelf, const Gelf_Sym *sym, bool *is
 			return '?';
 		}
 
-		if (type == STT_SECTION)
-			*is_debug = true;
-		if (section.sh_flags & SHF_ALLOC) {
-			if (section.sh_type == SHT_NOBITS)
-				ch = 'b';
-			else if (section.sh_flags & SHF_EXECINSTR)
+		if (section.sh_type == SHT_NOBITS) {
+			ch = 'b';
+		} else if (section.sh_flags & SHF_ALLOC) {
+			if (section.sh_flags & SHF_EXECINSTR)
 				ch = 't';
 			else if (section.sh_flags & SHF_WRITE)
 				ch = 'd';
 			else
 				ch = 'r';
 		} else {
-			uppercase = true;
-			ch = 'N';
+			/*uppercase = false;*/
+			ch = 'n';
 		}
 	}
 
 	if (uppercase)
 		ch = ft_toupper(ch);
-	if (ch == '?')
-		assert(0 && "b");
 	return ch;
 }
 
@@ -485,13 +484,6 @@ static enum error read_symbol_at(const struct nm_state *state,
 		return res;
 
 	int type = GELF_ST_TYPE(sym.st_info);
-
-	dest->value = sym.st_value;
-	dest->ch = get_symbol_char(&state->elf, &sym, &dest->is_debug);
-
-	/* apparently, for common values, the size is used as the value */
-	if (ft_tolower(dest->ch) == 'c')
-		dest->value = sym.st_size;
 
 	if (type == STT_SECTION) {
 		if (sym.st_shndx >= state->elf.e_shnum)
@@ -508,6 +500,14 @@ static enum error read_symbol_at(const struct nm_state *state,
 		dest->name = Gelf_strtab_get_name(&state->elf, &state->strtab,
 						  sym.st_name);
 	}
+
+	dest->value = sym.st_value;
+	dest->ch = get_symbol_char(&state->elf, &sym, &dest->is_debug);
+
+	/* apparently, for common values, the size is used as the value */
+	if (ft_tolower(dest->ch) == 'c')
+		dest->value = sym.st_size;
+
 	if (dest->name == NULL)
 		return NM_EBADELF;
 	return res;
