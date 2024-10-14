@@ -211,11 +211,6 @@ static bool check_bounds(const void *large_start, size_t large_size,
 	       csmall_end <= clarge_end;
 }
 
-static bool check_ptr(const void *start, size_t len, const void *ptr)
-{
-	return ptr >= start && ptr < (void *)((char *)start + len);
-}
-
 static const char *get_error(enum error err)
 {
 	switch (err) {
@@ -298,7 +293,7 @@ static enum error Gelf_shdr_at(const Gelf_Ehdr *gelf, Gelf_Shdr *dest,
 
 	const void *addr =
 		(char *)gelf->addr + +gelf->e_shoff + gelf->e_shentsize * idx;
-	if (!check_ptr(gelf->addr, gelf->size, addr))
+	if (!check_bounds(gelf->addr, gelf->size, addr, gelf->e_shentsize))
 		return NM_EBADELF;
 
 	dest->is_elf32 = gelf->is_elf32;
@@ -602,6 +597,14 @@ static enum error check_elf(const Gelf_Ehdr *gelf)
 	size_t size = gelf->e_shnum * gelf->e_shentsize;
 	if ((size / gelf->e_shnum) != gelf->e_shentsize)
 		return NM_EBADELF;
+
+	if (gelf->is_elf32) {
+		if (gelf->e_shentsize < sizeof(Elf32_Shdr))
+			return NM_EBADELF;
+	} else {
+		if (gelf->e_shentsize < sizeof(Elf64_Shdr))
+			return NM_EBADELF;
+	}
 
 	if (!check_bounds(gelf->addr, gelf->size, shstart, size))
 		return NM_EBADELF;
