@@ -624,7 +624,7 @@ static enum error init_state(struct nm_state *state, const Gelf_Ehdr *ehdr)
 
 	if (state->shstrtab.sh_type != SHT_STRTAB ||
 	    !Gelf_shdr_check(state->elf, &state->shstrtab)) {
-		res = NM_EBADELF;
+		return NM_EBADELF;
 	}
 
 	res = Gelf_shdr_find_checked(state->elf, &state->shstrtab,
