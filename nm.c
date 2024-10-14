@@ -23,6 +23,9 @@
 # define NM_FUZZ 0
 #endif
 
+#define IS_ALIGNED(p, boundary) (((p) & ((__typeof__(boundary))(boundary) - 1)) == 0)
+#define PTR_IS_ALIGNED(p, boundary) IS_ALIGNED((uintptr_t)(p), (boundary))
+
 #ifndef __BYTE_ORDER__
 # error "__BYTE_ORDER__ must be defined to compile this"
 #endif
@@ -299,6 +302,8 @@ static enum error Gelf_shdr_at(const Gelf_Ehdr *gelf, Gelf_Shdr *dest,
 	dest->is_elf32 = gelf->is_elf32;
 	if (gelf->is_elf32) {
 		const Elf32_Shdr *shdr = addr;
+		if (!PTR_IS_ALIGNED(addr, _Alignof(Elf32_Shdr)))
+			return NM_EBADELF;
 
 		dest->shdr32 = shdr;
 		dest->sh_type = dest->shdr32->sh_type;
@@ -309,6 +314,8 @@ static enum error Gelf_shdr_at(const Gelf_Ehdr *gelf, Gelf_Shdr *dest,
 		dest->sh_offset = dest->shdr32->sh_offset;
 	} else {
 		const Elf64_Shdr *shdr = addr;
+		if (!PTR_IS_ALIGNED(addr, _Alignof(Elf64_Shdr)))
+			return NM_EBADELF;
 
 		dest->shdr64 = shdr;
 		dest->sh_type = dest->shdr64->sh_type;
@@ -409,6 +416,9 @@ static enum error Gelf_sym_at(const Gelf_Ehdr *gelf,
 
 	if (gelf->is_elf32) {
 		const Elf32_Sym *sym = addr;
+
+		if (!PTR_IS_ALIGNED(addr, _Alignof(Elf32_Sym)))
+			return NM_EBADELF;
 		dest->st_value = sym->st_value;
 		dest->st_name = sym->st_name;
 		dest->st_info = sym->st_info;
@@ -417,6 +427,9 @@ static enum error Gelf_sym_at(const Gelf_Ehdr *gelf,
 		dest->st_size = sym->st_size;
 	} else {
 		const Elf64_Sym *sym = addr;
+
+		if (!PTR_IS_ALIGNED(addr, _Alignof(Elf64_Sym)))
+			return NM_EBADELF;
 		dest->st_value = sym->st_value;
 		dest->st_name = sym->st_name;
 		dest->st_info = sym->st_info;
@@ -667,6 +680,7 @@ static int compare_symbol_rev(const void *a, const void *b, void *opaque)
 
 static void print_symbol(const struct nm_state *state, const struct symbol *sym)
 {
+#if !FT_FUZZ
 	int width = state->elf->is_elf32 ? 8 : 16;
 
 	if (sym->ch == 'U' || sym->ch == 'w' || sym->ch == 'v') {
@@ -678,6 +692,7 @@ static void print_symbol(const struct nm_state *state, const struct symbol *sym)
 	}
 	printf("%c ", sym->ch);
 	printf("%s\n", sym->name);
+#endif
 }
 
 static enum error parse_elf_header(Gelf_Ehdr *hdr, const void *data,
