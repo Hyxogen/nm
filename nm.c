@@ -13,6 +13,7 @@
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
+#include <errno.h>
 
 //TODO remove
 #include <string.h>
@@ -87,8 +88,7 @@ enum error {
 	NM_EUNSUP,
 	NM_ENOMEM,
 	NM_ENOTFOUND,
-	//TODO add something like NM_ESYS which indicates that you have to read
-	//errno for more information
+	NM_ESYS,
 };
 
 struct nm_state {
@@ -212,6 +212,27 @@ static bool check_ptr(const void *start, size_t len, const void *ptr)
 	return ptr >= start && ptr < (void *)((char *)start + len);
 }
 
+static const char *get_error(enum error err)
+{
+	switch (err) {
+	case NM_OK:
+		return "no error";
+	case NM_ENOSYM:
+		return "no symbols";
+	case NM_EBADELF:
+		return "corrupted file";
+	case NM_EFILE:
+		return "file format not recognized";
+	case NM_EUNSUP:
+		return "unsupported elf format";
+	case NM_ENOMEM:
+		return "out of memory";
+	case NM_ENOTFOUND:
+		return "did not find";
+	case NM_ESYS:
+		return "system error";
+	}
+}
 static void error(const char *fmt, ...)
 {
 	if (prog_name)
@@ -226,30 +247,26 @@ static void error(const char *fmt, ...)
 	eprintf("\n");
 }
 
-static int read_file(void **dest, size_t *size, const char *path)
+static enum error read_file(void **dest, size_t *size, const char *path)
 {
-	int res = -1;
-
 	int fd = open(path, O_RDONLY);
-	if (fd < 0) {
-		perror("open");
-		goto finish;
-	}
+	if (fd < 0)
+		return NM_ESYS;
+
+	enum error res = NM_OK;
 
 	struct stat statbuf;
 	if (fstat(fd, &statbuf)) {
-		perror("fstat");
+		res = NM_ESYS;
 		goto finish;
 	}
 
 	*size = statbuf.st_size;
 	*dest = mmap(NULL, *size, PROT_READ, MAP_PRIVATE, fd, 0);
 	if (*dest == MAP_FAILED) {
-		perror("mmap");
+		res = NM_ESYS;
 		goto finish;
 	}
-
-	res = 0;
 finish:
 	if (fd >= 0) {
 		if (close(fd))
@@ -260,8 +277,8 @@ finish:
 
 static int free_elf(Gelf_Ehdr *elf)
 {
-	if (munmap(elf->addr, elf->size)) {
-		perror("mmap");
+	if (elf->addr != MAP_FAILED && munmap(elf->addr, elf->size)) {
+		perror("munmap");
 		return -1;
 	}
 	return 0;
@@ -450,7 +467,7 @@ static char get_symbol_char(const Gelf_Ehdr *gelf, const Gelf_Sym *sym, bool *is
 	} else if (sym->st_shndx < gelf->e_shnum) {
 		enum error res = Gelf_shdr_at(gelf, &section, sym->st_shndx);
 		if (res != NM_OK) {
-			assert(0 && "a");
+			/* corrupted elf */
 			return '?';
 		}
 
@@ -591,8 +608,11 @@ static enum error read_elf(Gelf_Ehdr *dest, const char *path)
 {
 	enum error res = NM_OK;
 
-	if (read_file(&dest->addr, &dest->size, path))
-		return NM_ENOMEM;
+	dest->addr = MAP_FAILED;
+
+	res = read_file(&dest->addr, &dest->size, path);
+	if (res != NM_OK)
+		return res;
 
 	if (dest->size < EI_NIDENT) {
 		res = NM_EFILE;
@@ -756,8 +776,10 @@ static void print_symbols(const char *path)
 		free_state(&state);
 	}
 	if (err != NM_OK) {
-		//TODO print err
-		assert(0);
+		if (err == NM_ESYS)
+			error("%s: %s", path, strerror(errno));
+		else
+			error("%s: %s", path, get_error(err));
 	}
 }
 

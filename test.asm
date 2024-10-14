@@ -45,6 +45,9 @@ global _global_weak_sym:weak
 _global_weak_sym:
 resb 0x4
 
+; it appears that nm detects special section names like ".debug" and changes the
+; symbol characters with it. I honestly can't be bothered to find every single
+; edgecase, but you can see the effect by changing ".foo" to ".debug" below here
 section .foo nowrite noalloc
 global _global_debug_sym
 _global_debug_sym:
