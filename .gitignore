@@ -6,3 +6,4 @@
 /.cache
 /mine.txt
 /theirs.txt
+/*.o

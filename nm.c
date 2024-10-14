@@ -72,6 +72,7 @@ typedef struct {
 typedef struct {
 	bool is_elf32;
 	Gelf_Addr st_value;
+	Gelf_Xword st_size;
 	Gelf_Word st_name;
 	unsigned char st_info;
 	unsigned char st_other;
@@ -397,6 +398,7 @@ static enum error Gelf_sym_at(const Gelf_Ehdr *gelf,
 		dest->st_info = sym->st_info;
 		dest->st_other = sym->st_other;
 		dest->st_shndx = sym->st_shndx;
+		dest->st_size = sym->st_size;
 	} else {
 		const Elf64_Sym *sym = addr;
 		dest->st_value = sym->st_value;
@@ -404,6 +406,7 @@ static enum error Gelf_sym_at(const Gelf_Ehdr *gelf,
 		dest->st_info = sym->st_info;
 		dest->st_other = sym->st_other;
 		dest->st_shndx = sym->st_shndx;
+		dest->st_size = sym->st_size;
 	}
 	return NM_OK;
 }
@@ -485,6 +488,10 @@ static enum error read_symbol_at(const struct nm_state *state,
 
 	dest->value = sym.st_value;
 	dest->ch = get_symbol_char(&state->elf, &sym, &dest->is_debug);
+
+	/* apparently, for common values, the size is used as the value */
+	if (ft_tolower(dest->ch) == 'c')
+		dest->value = sym.st_size;
 
 	if (type == STT_SECTION) {
 		if (sym.st_shndx >= state->elf.e_shnum)
