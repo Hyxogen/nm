@@ -696,6 +696,9 @@ static enum error parse_elf_header(Gelf_Ehdr *hdr, const void *data,
 
 	switch (ident[EI_CLASS]) {
 	case ELFCLASS32:
+		if (size < sizeof(Elf32_Ehdr))
+			return NM_EBADELF;
+
 		hdr->is_elf32 = true;
 		hdr->e_shentsize = hdr->elf32->e_shentsize;
 		hdr->e_shnum = hdr->elf32->e_shnum;
@@ -703,6 +706,9 @@ static enum error parse_elf_header(Gelf_Ehdr *hdr, const void *data,
 		hdr->e_shoff = hdr->elf32->e_shoff;
 		break;
 	case ELFCLASS64:
+		if (size < sizeof(Elf64_Ehdr))
+			return NM_EBADELF;
+
 		hdr->is_elf32 = false;
 		hdr->e_shentsize = hdr->elf64->e_shentsize;
 		hdr->e_shnum = hdr->elf64->e_shnum;
@@ -711,11 +717,6 @@ static enum error parse_elf_header(Gelf_Ehdr *hdr, const void *data,
 		break;
 	default:
 		return NM_EUNSUP;
-	}
-
-	if ((hdr->is_elf32 && hdr->size < sizeof(Elf32_Ehdr)) ||
-	    (!hdr->is_elf32 && hdr->size < sizeof(Elf64_Ehdr))) {
-		return NM_EBADELF;
 	}
 	return check_elf(hdr);
 }
