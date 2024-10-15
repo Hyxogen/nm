@@ -419,6 +419,8 @@ static enum error Gelf_sym_at(const Gelf_Ehdr *gelf,
 
 		if (!PTR_IS_ALIGNED(addr, _Alignof(Elf32_Sym)))
 			return NM_EBADELF;
+		if (!check_bounds(gelf, gelf->size, sym, sizeof(Elf32_Sym)))
+			return NM_EBADELF;
 		dest->st_value = sym->st_value;
 		dest->st_name = sym->st_name;
 		dest->st_info = sym->st_info;
@@ -429,6 +431,8 @@ static enum error Gelf_sym_at(const Gelf_Ehdr *gelf,
 		const Elf64_Sym *sym = addr;
 
 		if (!PTR_IS_ALIGNED(addr, _Alignof(Elf64_Sym)))
+			return NM_EBADELF;
+		if (!check_bounds(gelf, gelf->size, sym, sizeof(Elf64_Sym)))
 			return NM_EBADELF;
 		dest->st_value = sym->st_value;
 		dest->st_name = sym->st_name;
@@ -724,6 +728,7 @@ static enum error parse_elf_header(Gelf_Ehdr *hdr, const void *data,
 		hdr->e_shnum = hdr->elf32->e_shnum;
 		hdr->e_shstrndx = hdr->elf32->e_shstrndx;
 		hdr->e_shoff = hdr->elf32->e_shoff;
+
 		break;
 	case ELFCLASS64:
 		if (size < sizeof(Elf64_Ehdr))
