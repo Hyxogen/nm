@@ -375,8 +375,13 @@ static enum error Gelf_shdr_find(const Gelf_Ehdr *gelf,
 
 static bool Gelf_shdr_check(const Gelf_Ehdr *gelf, const Gelf_Shdr *shdr)
 {
+	if (shdr->sh_offset >= gelf->size)
+		return false;
+
 	const void *addr = (char *)gelf->addr + shdr->sh_offset;
 
+	if ((uintptr_t) (((void*) -1) - addr) < shdr->sh_size)
+		return false;
 	if (!check_bounds(gelf->addr, gelf->size, addr, shdr->sh_size))
 		return false;
 
