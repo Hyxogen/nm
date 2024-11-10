@@ -94,7 +94,7 @@ enum error {
 	NM_ENOSYM,
 	NM_EBADELF,
 	NM_EFILE,
-	NM_EUNSUP,
+	NM_ENOTSUP,
 	NM_ENOMEM,
 	NM_ENOTFOUND,
 	NM_ESYS,
@@ -227,7 +227,7 @@ static const char *get_error(enum error err)
 		return "corrupted file";
 	case NM_EFILE:
 		return "file format not recognized";
-	case NM_EUNSUP:
+	case NM_ENOTSUP:
 		return "unsupported elf format";
 	case NM_ENOMEM:
 		return "out of memory";
@@ -603,12 +603,12 @@ static enum error check_elf(const Gelf_Ehdr *gelf)
 {
 	if (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) {
 		if (gelf->elf32->e_ident[EI_DATA] != ELFDATA2LSB)
-			return NM_EUNSUP;
+			return NM_ENOTSUP;
 	}
 
 	if (__BYTE_ORDER__ == __ORDER_BIG_ENDIAN__) {
 		if (gelf->elf32->e_ident[EI_DATA] != ELFDATA2MSB)
-			return NM_EUNSUP;
+			return NM_ENOTSUP;
 	}
 
 	if (gelf->e_shnum == 0 || gelf->e_shentsize == 0 || gelf->e_shoff == 0)
@@ -636,10 +636,10 @@ static enum error check_elf(const Gelf_Ehdr *gelf)
 		return NM_EBADELF;
 
 	if (gelf->e_machine != EM_AMD64 && gelf->e_machine != EM_386)
-		return NM_EUNSUP;
+		return NM_ENOTSUP;
 
 	if (gelf->e_version != 1)
-		return NM_EUNSUP;
+		return NM_ENOTSUP;
 
 	return NM_OK;
 }
@@ -758,7 +758,7 @@ static enum error parse_elf_header(Gelf_Ehdr *hdr, const void *data,
 		hdr->e_version = hdr->elf64->e_version;
 		break;
 	default:
-		return NM_EUNSUP;
+		return NM_ENOTSUP;
 	}
 	return check_elf(hdr);
 }
