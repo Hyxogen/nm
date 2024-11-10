@@ -234,6 +234,8 @@ static const char *get_error(enum error err)
 		return "did not find";
 	case NM_ESYS:
 		return "system error";
+	default:
+		return "unknown error";
 	}
 }
 static void error(const char *fmt, ...)
