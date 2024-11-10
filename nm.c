@@ -424,7 +424,7 @@ static enum error Gelf_sym_at(const Gelf_Ehdr *gelf,
 
 		if (!PTR_IS_ALIGNED(addr, _Alignof(Elf32_Sym)))
 			return NM_EBADELF;
-		if (!check_bounds(gelf, gelf->size, sym, sizeof(Elf32_Sym)))
+		if (!check_bounds(gelf->addr, gelf->size, sym, sizeof(Elf32_Sym)))
 			return NM_EBADELF;
 		dest->st_value = sym->st_value;
 		dest->st_name = sym->st_name;
@@ -437,7 +437,7 @@ static enum error Gelf_sym_at(const Gelf_Ehdr *gelf,
 
 		if (!PTR_IS_ALIGNED(addr, _Alignof(Elf64_Sym)))
 			return NM_EBADELF;
-		if (!check_bounds(gelf, gelf->size, sym, sizeof(Elf64_Sym)))
+		if (!check_bounds(gelf->addr, gelf->size, sym, sizeof(Elf64_Sym)))
 			return NM_EBADELF;
 		dest->st_value = sym->st_value;
 		dest->st_name = sym->st_name;
