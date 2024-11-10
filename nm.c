@@ -52,7 +52,6 @@ typedef struct {
 	Gelf_Xword e_shentsize;
 	Gelf_Half e_shnum;
 	Gelf_Half e_machine;
-	Gelf_Word e_version;
 	Gelf_Half e_shstrndx;
 	Gelf_Off e_shoff;
 	union {
@@ -638,9 +637,6 @@ static enum error check_elf(const Gelf_Ehdr *gelf)
 	if (gelf->e_machine != EM_AMD64 && gelf->e_machine != EM_386)
 		return NM_ENOTSUP;
 
-	if (gelf->e_version != 1)
-		return NM_ENOTSUP;
-
 	return NM_OK;
 }
 
@@ -742,7 +738,6 @@ static enum error parse_elf_header(Gelf_Ehdr *hdr, const void *data,
 		hdr->e_shnum = hdr->elf32->e_shnum;
 		hdr->e_shstrndx = hdr->elf32->e_shstrndx;
 		hdr->e_shoff = hdr->elf32->e_shoff;
-		hdr->e_version = hdr->elf32->e_version;
 
 		break;
 	case ELFCLASS64:
@@ -755,7 +750,6 @@ static enum error parse_elf_header(Gelf_Ehdr *hdr, const void *data,
 		hdr->e_shnum = hdr->elf64->e_shnum;
 		hdr->e_shstrndx = hdr->elf64->e_shstrndx;
 		hdr->e_shoff = hdr->elf64->e_shoff;
-		hdr->e_version = hdr->elf64->e_version;
 		break;
 	default:
 		return NM_ENOTSUP;
