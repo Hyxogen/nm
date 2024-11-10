@@ -9,21 +9,20 @@
 #include <ft/string.h>
 #include <stdbool.h>
 #include <stddef.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/mman.h>
 #include <sys/stat.h>
 #include <unistd.h>
-
-// TODO remove
-#include <stdlib.h>
-#include <string.h>
 
 #ifndef NM_FUZZ
 # define NM_FUZZ 0
 #endif
 
-#define IS_ALIGNED(p, boundary) (((p) & ((__typeof__(boundary))(boundary) - 1)) == 0)
+#define IS_ALIGNED(p, boundary) \
+	(((p) & ((__typeof__(boundary))(boundary) - 1)) == 0)
 #define PTR_IS_ALIGNED(p, boundary) IS_ALIGNED((uintptr_t)(p), (boundary))
 
 #ifndef __BYTE_ORDER__
@@ -383,7 +382,7 @@ static bool Gelf_shdr_check(const Gelf_Ehdr *gelf, const Gelf_Shdr *shdr)
 
 	const void *addr = (char *)gelf->addr + shdr->sh_offset;
 
-	if ((uintptr_t) (((void*) -1) - addr) < shdr->sh_size)
+	if ((uintptr_t)(((void *)-1) - addr) < shdr->sh_size)
 		return false;
 	if (!check_bounds(gelf->addr, gelf->size, addr, shdr->sh_size))
 		return false;
@@ -427,7 +426,8 @@ static enum error Gelf_sym_at(const Gelf_Ehdr *gelf,
 
 		if (!PTR_IS_ALIGNED(addr, _Alignof(Elf32_Sym)))
 			return NM_EBADELF;
-		if (!check_bounds(gelf->addr, gelf->size, sym, sizeof(Elf32_Sym)))
+		if (!check_bounds(gelf->addr, gelf->size, sym,
+				  sizeof(Elf32_Sym)))
 			return NM_EBADELF;
 		dest->st_value = sym->st_value;
 		dest->st_name = sym->st_name;
@@ -440,7 +440,8 @@ static enum error Gelf_sym_at(const Gelf_Ehdr *gelf,
 
 		if (!PTR_IS_ALIGNED(addr, _Alignof(Elf64_Sym)))
 			return NM_EBADELF;
-		if (!check_bounds(gelf->addr, gelf->size, sym, sizeof(Elf64_Sym)))
+		if (!check_bounds(gelf->addr, gelf->size, sym,
+				  sizeof(Elf64_Sym)))
 			return NM_EBADELF;
 		dest->st_value = sym->st_value;
 		dest->st_name = sym->st_name;
