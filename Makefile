@@ -9,7 +9,7 @@ SRC_FILES	:= nm.c
 OBJ_FILES	:= $(patsubst %.c,$(OBJ_DIR)/%.o,$(SRC_FILES))
 DEP_FILES	:= $(patsubst %.c,$(OBJ_DIR)/%.d,$(SRC_FILES))
 
-CC		:= clang
+CC		?= clang
 
 CFLAGS		:= -Wall -Wextra -MMD -MP -I$(LIBFT_DIR)/include
 LFLAGS		:=
