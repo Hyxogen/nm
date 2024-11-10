@@ -75,6 +75,7 @@ typedef int64_t Elf64_Sxword;
 #define ELFDATA2MSB 2 /* big endian */
 
 #define EV_NONE 0
+#define EV_CURRENT 1
 
 #define STB_LOCAL 0
 #define STB_GLOBAL 1

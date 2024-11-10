@@ -727,6 +727,9 @@ static enum error parse_elf_header(Gelf_Ehdr *hdr, const void *data,
 		      4))
 		return NM_EFILE;
 
+	if (ident[EI_VERSION] != EV_CURRENT)
+		return NM_ENOTSUP;
+
 	switch (ident[EI_CLASS]) {
 	case ELFCLASS32:
 		if (size < sizeof(Elf32_Ehdr))
