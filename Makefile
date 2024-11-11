@@ -17,7 +17,7 @@ LFLAGS		:=
 LINK_CMD	:= $(CC)
 
 ifndef config
-	config	:= debug
+	config	:= distr
 endif
 
 ifeq ($(config), debug)
@@ -34,7 +34,7 @@ $(error "$(config): unknown config")
 endif
 
 ifndef san
-	san 	:= addr
+	san 	:= none
 endif
 
 ifeq ($(san), addr)
